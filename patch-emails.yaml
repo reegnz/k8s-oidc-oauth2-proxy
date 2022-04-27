@@ -1,0 +1,21 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+spec:
+  template:
+    spec:
+      containers:
+      - name: oauth2-proxy
+        env:
+        - name: OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE
+          value: /etc/oauth2_proxy/authenticated_emails.csv
+        - name: SSL_CERT_FILE
+          value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        volumeMounts:
+        - $patch: delete
+          name: configmain
+          mountPath: /etc/oauth2_proxy/oauth2_proxy.cfg
+        - name: configmain
+          mountPath: /etc/oauth2_proxy
