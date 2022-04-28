@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+spec:
+  ports:
+  - port: 80
+    targetPort: 4180
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  template:
+    spec:
+      containers:
+      - name: oauth2-proxy-sidecar
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.2.0
+        env:
+        - name: OAUTH2_PROXY_HTTP_ADDRESS
+          value: "0.0.0.0:4180"
+        - name: OAUTH2_PROXY_METRICS_ADDRESS
+          value: "0.0.0.0:44180"
+        - name: OAUTH2_PROXY_PROVIDER
+          value: "oidc"
+        - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+          value: "https://kubernetes.default.svc.cluster.local"
+        - name: OAUTH2_PROXY_UPSTREAMS
+          value: "http://127.0.0.1:80/"
+        - name: OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS
+          value: "true"
+        - name: OAUTH2_PROXY_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name:  oauth2-proxy
+              key: client-id
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name:  oauth2-proxy
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name:  oauth2-proxy
+              key: cookie-secret
+        - name: OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE
+          value: /etc/oauth2_proxy/authenticated_emails.csv
+        - name: SSL_CERT_FILE
+          value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        volumeMounts:
+        - name: configmain
+          mountPath: /etc/oauth2_proxy
+        ports:
+        - containerPort: 4180
+          name: http
+          protocol: TCP
+        - containerPort: 44180
+          name: metrics
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 0
+          timeoutSeconds: 1
+          successThreshold: 1
+          periodSeconds: 10
+      volumes:
+      - name: configmain
+        configMap:
+          defaultMode: 420
+          name: oauth2-proxy
